@@ -172,12 +172,31 @@ impl EventHandler for Handler {
     }
 }
 
-/// 文字列から `[REACT:emoji]` パターンを検出し、emoji 部分を返す。
+/// 文字列から REACT パターンを検出し、emoji 部分を返す。
+/// `[REACT:emoji]`, `REACT:emoji`, `REACT: emoji` をサポート。
+/// また、テキスト全体が絵文字1文字のみの場合もリアクション扱い。
 fn parse_react_tag(text: &str) -> Option<&str> {
-    let start = text.find("[REACT:")?;
-    let rest = &text[start + 7..];
-    let end = rest.find(']')?;
-    Some(&rest[..end])
+    let trimmed = text.trim();
+    // [REACT:emoji] パターン
+    if let Some(start) = trimmed.find("[REACT:") {
+        let rest = &trimmed[start + 7..];
+        if let Some(end) = rest.find(']') {
+            return Some(rest[..end].trim());
+        }
+    }
+    // REACT:emoji or REACT: emoji パターン（カッコなし）
+    if let Some(start) = trimmed.find("REACT:") {
+        let rest = trimmed[start + 6..].trim();
+        if !rest.is_empty() {
+            return Some(rest.trim_end_matches(']'));
+        }
+    }
+    // 絵文字1文字のみ（emoji判定: 1-2 chars, 全てnon-ASCII）
+    let chars: Vec<char> = trimmed.chars().collect();
+    if chars.len() <= 2 && !chars.is_empty() && chars.iter().all(|c| !c.is_ascii()) {
+        return Some(trimmed);
+    }
+    None
 }
 
 pub async fn start_discord_bot(
