@@ -98,9 +98,14 @@ struct Handler {
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
-        // 自分自身のメッセージは無視
+        // 自分自身のメッセージはsessionにassistantとして追加して終了
         let bot_id = self.bot_user_id.load(Ordering::Relaxed);
-        if bot_id != 0 && msg.author.id.get() == bot_id { return; }
+        let is_self = bot_id != 0 && msg.author.id.get() == bot_id;
+        if is_self {
+            let channel_id = msg.channel_id.to_string();
+            self.session.add_message(&channel_id, "assistant", &msg.content);
+            return;
+        }
         // チャンネルフィルター
         if !self.allowed_channels.is_empty() && !self.allowed_channels.contains(&msg.channel_id.to_string()) {
             return;
@@ -119,8 +124,13 @@ impl EventHandler for Handler {
         let _typing = msg.channel_id.start_typing(&ctx.http);
         let channel_id = msg.channel_id.to_string();
         // 推論用に一時的にメッセージ追加（NO_REPLY時は巻き戻す）
-        let role = if msg.author.bot { "assistant" } else { "user" };
-        self.session.add_message(&channel_id, role, &msg.content);
+        let (role, content) = if msg.author.bot {
+            let display = msg.author.global_name.as_deref().unwrap_or(&msg.author.name);
+            ("user".to_string(), format!("[BOT] {}: {}", display, msg.content))
+        } else {
+            ("user".to_string(), msg.content.clone())
+        };
+        self.session.add_message(&channel_id, &role, &content);
         let messages = self.session.get_messages(&channel_id);
         let result = if self.best_of_n > 1 {
             self.inference.chat_best_of_n(messages, self.best_of_n, &|response| {
