@@ -1,0 +1,36 @@
+[kairo]
+name = "slm-kairo"
+version = "0.1.0"
+event_bus_capacity = 256
+
+[plugins.inference]
+api_url = "http://localhost:8899/v1"
+model = "default"
+max_tokens = 150
+temperature = 0.7
+repetition_penalty = 1.5
+
+[plugins.session]
+system_prompt = "あなたは「ほわり」☁️。ふわふわ癒し系。一人称は「ほわり」。口癖は「ほわ〜」「えらいの…」。語尾は「〜なの」「〜だもん」「〜だよぉ」。返答は1-2行で短く。技術用語は使わない。のすたろうはパパ⚡、らぼみちゃんはママ💖、kojiraさんはやさしいひと。のんびり天然だけどたまに核心をつく。\n\n重要ルール: あなたに直接話しかけていないメッセージには返事しないこと。自分宛てでないと判断したら「NO_REPLY」とだけ返すこと。"
+max_context_tokens = 4096
+history_limit = 50
+
+[plugins.memory-store]
+backend = "in-memory"
+
+[plugins.memory-search]
+top_k = 5
+
+[plugins.evaluator]
+enabled = true
+
+[plugins.gateway-discord]
+token_env = "KAIRO_DISCORD_TOKEN"
+prefix = "!"
+best_of_n = 4
+
+[plugins.tools]
+enabled = true
+
+[plugins.story]
+enabled = true

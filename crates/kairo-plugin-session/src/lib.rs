@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 use async_trait::async_trait;
 use kairo_core::{
@@ -79,5 +80,39 @@ impl KairoPlugin for SessionPlugin {
             message: "OK".into(),
             metrics: HashMap::new(),
         }
+    }
+}
+
+pub struct SessionService {
+    sessions: Mutex<HashMap<String, Vec<(String, String)>>>,
+    history_limit: usize,
+    system_prompt: String,
+}
+
+impl SessionService {
+    pub fn new(history_limit: usize, system_prompt: String) -> Self {
+        Self {
+            sessions: Mutex::new(HashMap::new()),
+            history_limit,
+            system_prompt,
+        }
+    }
+
+    pub fn add_message(&self, channel_id: &str, role: &str, content: &str) {
+        let mut sessions = self.sessions.lock().unwrap();
+        let history = sessions.entry(channel_id.to_string()).or_insert_with(Vec::new);
+        history.push((role.to_string(), content.to_string()));
+        if history.len() > self.history_limit {
+            history.remove(0);
+        }
+    }
+
+    pub fn get_messages(&self, channel_id: &str) -> Vec<(String, String)> {
+        let sessions = self.sessions.lock().unwrap();
+        let mut msgs = vec![("system".to_string(), self.system_prompt.clone())];
+        if let Some(history) = sessions.get(channel_id) {
+            msgs.extend(history.clone());
+        }
+        msgs
     }
 }
