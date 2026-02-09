@@ -28,7 +28,7 @@ enabled = true
 token_env = "KAIRO_DISCORD_TOKEN"
 prefix = "!"
 best_of_n = 4
-allowed_channels = []
+allowed_channels = ["1468434240495423572"]  # #漫才
 
 [plugins.tools]
 enabled = true
