@@ -116,7 +116,11 @@ impl SessionService {
 
     pub fn get_messages(&self, channel_id: &str) -> Vec<(String, String)> {
         let sessions = self.sessions.lock().unwrap();
-        let mut msgs = vec![("system".to_string(), self.system_prompt.clone())];
+        // 日時プレースホルダを動的置換
+        let now = chrono::Local::now();
+        let datetime_str = now.format("%Y-%m-%d %H:%M JST").to_string();
+        let system = self.system_prompt.replace("{datetime}", &datetime_str);
+        let mut msgs = vec![("system".to_string(), system)];
         if let Some(history) = sessions.get(channel_id) {
             msgs.extend(history.clone());
         }
