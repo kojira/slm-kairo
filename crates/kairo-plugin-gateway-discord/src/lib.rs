@@ -130,10 +130,13 @@ impl EventHandler for Handler {
                 let trimmed = reply.trim();
                 if trimmed == "NO_REPLY" || trimmed.contains("NO_REPLY") {
                     tracing::info!("Skipping reply (NO_REPLY detected)");
-                    // NO_REPLY時はuserメッセージも履歴から除去
                     self.session.pop_last_message(&channel_id);
-                    // 代わりに☁️リアクションをつける
-                    let _ = msg.react(&ctx.http, ReactionType::Unicode("☁️".to_string())).await;
+                    return;
+                }
+                if let Some(emoji) = parse_react_tag(trimmed) {
+                    tracing::info!("React tag detected: {emoji}");
+                    self.session.pop_last_message(&channel_id);
+                    let _ = msg.react(&ctx.http, ReactionType::Unicode(emoji.to_string())).await;
                     return;
                 }
                 self.session.add_message(&channel_id, "assistant", &reply);
@@ -151,6 +154,14 @@ impl EventHandler for Handler {
     async fn ready(&self, _ctx: Context, ready: Ready) {
         tracing::info!("Discord bot connected as {}", ready.user.name);
     }
+}
+
+/// 文字列から `[REACT:emoji]` パターンを検出し、emoji 部分を返す。
+fn parse_react_tag(text: &str) -> Option<&str> {
+    let start = text.find("[REACT:")?;
+    let rest = &text[start + 7..];
+    let end = rest.find(']')?;
+    Some(&rest[..end])
 }
 
 pub async fn start_discord_bot(
