@@ -163,4 +163,18 @@ impl InferenceService {
         }).unwrap();
         Ok(best)
     }
+
+    pub async fn chat_best_of_n_all(
+        &self,
+        messages: Vec<(String, String)>,
+        n: usize,
+    ) -> std::result::Result<Vec<String>, String> {
+        let futures: Vec<_> = (0..n).map(|_| self.chat(messages.clone())).collect();
+        let results = futures::future::join_all(futures).await;
+        let candidates: Vec<String> = results.into_iter().filter_map(|r| r.ok()).collect();
+        if candidates.is_empty() {
+            return Err("All candidates failed".to_string());
+        }
+        Ok(candidates)
+    }
 }
