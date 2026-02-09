@@ -1,0 +1,39 @@
+[workspace]
+members = [
+    "crates/kairo-core",
+    "crates/kairo-plugin-inference",
+    "crates/kairo-plugin-session",
+    "crates/kairo-plugin-memory-store",
+    "crates/kairo-plugin-memory-search",
+    "crates/kairo-plugin-evaluator",
+    "crates/kairo-plugin-gateway-discord",
+    "crates/kairo-plugin-tools",
+    "crates/kairo-plugin-story",
+]
+resolver = "3"
+
+[package]
+name = "slm-kairo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+kairo-core = { path = "crates/kairo-core" }
+kairo-plugin-inference = { path = "crates/kairo-plugin-inference" }
+kairo-plugin-session = { path = "crates/kairo-plugin-session" }
+kairo-plugin-memory-store = { path = "crates/kairo-plugin-memory-store" }
+kairo-plugin-memory-search = { path = "crates/kairo-plugin-memory-search" }
+kairo-plugin-evaluator = { path = "crates/kairo-plugin-evaluator" }
+kairo-plugin-gateway-discord = { path = "crates/kairo-plugin-gateway-discord" }
+kairo-plugin-tools = { path = "crates/kairo-plugin-tools" }
+kairo-plugin-story = { path = "crates/kairo-plugin-story" }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+thiserror = "2"
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
