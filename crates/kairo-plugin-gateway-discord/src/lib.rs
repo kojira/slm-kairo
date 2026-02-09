@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use serenity::all::{Client, Context, EventHandler, GatewayIntents, Message, Ready};
+use serenity::all::{Client, Context, EventHandler, GatewayIntents, Message, ReactionType, Ready};
 use kairo_plugin_inference::InferenceService;
 use kairo_plugin_session::SessionService;
 use kairo_core::{
@@ -127,6 +127,8 @@ impl EventHandler for Handler {
                     tracing::info!("Skipping reply (NO_REPLY detected)");
                     // NO_REPLY時はuserメッセージも履歴から除去
                     self.session.pop_last_message(&channel_id);
+                    // 代わりに☁️リアクションをつける
+                    let _ = msg.react(&ctx.http, ReactionType::Unicode("☁️".to_string())).await;
                     return;
                 }
                 self.session.add_message(&channel_id, "assistant", &reply);
