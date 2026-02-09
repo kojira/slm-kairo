@@ -107,6 +107,13 @@ impl SessionService {
         }
     }
 
+    pub fn pop_last_message(&self, channel_id: &str) {
+        let mut sessions = self.sessions.lock().unwrap();
+        if let Some(history) = sessions.get_mut(channel_id) {
+            history.pop();
+        }
+    }
+
     pub fn get_messages(&self, channel_id: &str) -> Vec<(String, String)> {
         let sessions = self.sessions.lock().unwrap();
         let mut msgs = vec![("system".to_string(), self.system_prompt.clone())];

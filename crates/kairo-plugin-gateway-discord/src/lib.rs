@@ -97,16 +97,9 @@ impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
         // 自分自身のメッセージは無視
         if msg.author.id.get() == ctx.cache.current_user().id.get() { return; }
-        // Bot発言で名前呼びされてもループするので、人間のメッセージのみ名前呼びを許可
-        let bot_id = ctx.cache.current_user().id;
-        let content_lower = msg.content.to_lowercase();
-        let is_mention = msg.mentions.iter().any(|u| u.id == bot_id);
-        let is_name_call = !msg.author.bot && (content_lower.contains("かいろ") || content_lower.contains("ほわり"));
-        if !is_mention && !is_name_call {
-            return;
-        }
         let _typing = msg.channel_id.start_typing(&ctx.http);
         let channel_id = msg.channel_id.to_string();
+        // 推論用に一時的にメッセージ追加（NO_REPLY時は巻き戻す）
         self.session.add_message(&channel_id, "user", &msg.content);
         let messages = self.session.get_messages(&channel_id);
         let result = if self.best_of_n > 1 {
@@ -121,6 +114,8 @@ impl EventHandler for Handler {
                 let trimmed = reply.trim();
                 if trimmed == "NO_REPLY" || trimmed.contains("NO_REPLY") {
                     tracing::info!("Skipping reply (NO_REPLY detected)");
+                    // NO_REPLY時はuserメッセージも履歴から除去
+                    self.session.pop_last_message(&channel_id);
                     return;
                 }
                 self.session.add_message(&channel_id, "assistant", &reply);
