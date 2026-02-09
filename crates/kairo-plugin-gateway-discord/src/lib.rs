@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use async_trait::async_trait;
 use serenity::all::{Client, Context, EventHandler, GatewayIntents, Message, ReactionType, Ready};
@@ -91,13 +92,15 @@ struct Handler {
     session: Arc<SessionService>,
     best_of_n: usize,
     allowed_channels: Vec<String>,
+    bot_user_id: Arc<AtomicU64>,
 }
 
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
         // 自分自身のメッセージは無視
-        if msg.author.id.get() == ctx.cache.current_user().id.get() { return; }
+        let bot_id = self.bot_user_id.load(Ordering::Relaxed);
+        if bot_id != 0 && msg.author.id.get() == bot_id { return; }
         // チャンネルフィルター
         if !self.allowed_channels.is_empty() && !self.allowed_channels.contains(&msg.channel_id.to_string()) {
             return;
@@ -116,7 +119,8 @@ impl EventHandler for Handler {
         let _typing = msg.channel_id.start_typing(&ctx.http);
         let channel_id = msg.channel_id.to_string();
         // 推論用に一時的にメッセージ追加（NO_REPLY時は巻き戻す）
-        self.session.add_message(&channel_id, "user", &msg.content);
+        let role = if msg.author.bot { "assistant" } else { "user" };
+        self.session.add_message(&channel_id, role, &msg.content);
         let messages = self.session.get_messages(&channel_id);
         let result = if self.best_of_n > 1 {
             self.inference.chat_best_of_n(messages, self.best_of_n, &|response| {
@@ -127,6 +131,7 @@ impl EventHandler for Handler {
         };
         match result {
             Ok(reply) => {
+                tracing::info!("Inference result (first 100 chars): {}", reply.chars().take(100).collect::<String>());
                 let trimmed = reply.trim();
                 if trimmed == "NO_REPLY" || trimmed.contains("NO_REPLY") {
                     tracing::info!("Skipping reply (NO_REPLY detected)");
@@ -152,7 +157,8 @@ impl EventHandler for Handler {
     }
 
     async fn ready(&self, _ctx: Context, ready: Ready) {
-        tracing::info!("Discord bot connected as {}", ready.user.name);
+        self.bot_user_id.store(ready.user.id.get(), Ordering::Relaxed);
+        tracing::info!("Discord bot connected as {} (id={})", ready.user.name, ready.user.id.get());
     }
 }
 
@@ -172,7 +178,8 @@ pub async fn start_discord_bot(
     allowed_channels: Vec<String>,
 ) -> anyhow::Result<()> {
     let intents = GatewayIntents::GUILD_MESSAGES | GatewayIntents::MESSAGE_CONTENT;
-    let handler = Handler { inference, session, best_of_n, allowed_channels };
+    let bot_user_id = Arc::new(AtomicU64::new(0));
+    let handler = Handler { inference, session, best_of_n, allowed_channels, bot_user_id };
     let mut client = Client::builder(&token, intents)
         .event_handler(handler)
         .await?;
