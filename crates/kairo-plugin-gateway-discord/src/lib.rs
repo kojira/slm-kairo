@@ -102,15 +102,15 @@ impl EventHandler for Handler {
         if !self.allowed_channels.is_empty() && !self.allowed_channels.contains(&msg.channel_id.to_string()) {
             return;
         }
-        // Bot連続発言のループ防止: 直前の返答がassistant(自分)ならBotメッセージは無視
+        // Bot連続発言のループ防止: 直近5件中assistant が3件以上ならBotメッセージは無視
         if msg.author.bot {
             let channel_id = msg.channel_id.to_string();
             let history = self.session.get_messages(&channel_id);
-            if let Some((role, _)) = history.last() {
-                if role == "assistant" {
-                    tracing::info!("Loop guard: last message was assistant, skipping bot message");
-                    return;
-                }
+            let recent: Vec<_> = history.iter().rev().take(5).collect();
+            let assistant_count = recent.iter().filter(|(role, _)| role == "assistant").count();
+            if assistant_count >= 3 {
+                tracing::info!("Loop guard: {assistant_count}/5 recent messages are assistant, skipping bot message");
+                return;
             }
         }
         let _typing = msg.channel_id.start_typing(&ctx.http);
