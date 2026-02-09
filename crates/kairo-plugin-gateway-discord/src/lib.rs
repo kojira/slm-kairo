@@ -97,6 +97,22 @@ impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
         // 自分自身のメッセージは無視
         if msg.author.id.get() == ctx.cache.current_user().id.get() { return; }
+        // Bot連続発言のループ防止: 直近3件が全てBot発言ならスキップ
+        if msg.author.bot {
+            let channel_id = msg.channel_id.to_string();
+            let history = self.session.get_messages(&channel_id);
+            let recent_bot_count = history.iter().rev().take(3)
+                .filter(|(role, _)| role == "user")
+                .count();
+            // 履歴のuser=他者の発言。直近が全部応答済み（assistant）なら連続応答中
+            let recent_assistant = history.iter().rev().take(2)
+                .filter(|(role, _)| role == "assistant")
+                .count();
+            if recent_assistant >= 2 {
+                tracing::info!("Loop guard: skipping consecutive bot response");
+                return;
+            }
+        }
         let _typing = msg.channel_id.start_typing(&ctx.http);
         let channel_id = msg.channel_id.to_string();
         // 推論用に一時的にメッセージ追加（NO_REPLY時は巻き戻す）
