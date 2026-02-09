@@ -90,6 +90,7 @@ struct Handler {
     inference: Arc<InferenceService>,
     session: Arc<SessionService>,
     best_of_n: usize,
+    allowed_channels: Vec<String>,
 }
 
 #[async_trait]
@@ -97,6 +98,10 @@ impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
         // 自分自身のメッセージは無視
         if msg.author.id.get() == ctx.cache.current_user().id.get() { return; }
+        // チャンネルフィルター
+        if !self.allowed_channels.is_empty() && !self.allowed_channels.contains(&msg.channel_id.to_string()) {
+            return;
+        }
         // Bot連続発言のループ防止: 直前の返答がassistant(自分)ならBotメッセージは無視
         if msg.author.bot {
             let channel_id = msg.channel_id.to_string();
@@ -138,7 +143,7 @@ impl EventHandler for Handler {
             }
             Err(e) => {
                 tracing::error!("Inference error: {e}");
-                let _ = msg.channel_id.say(&ctx.http, format!("エラー: {e}")).await;
+                self.session.pop_last_message(&channel_id);
             }
         }
     }
@@ -153,9 +158,10 @@ pub async fn start_discord_bot(
     inference: Arc<InferenceService>,
     session: Arc<SessionService>,
     best_of_n: usize,
+    allowed_channels: Vec<String>,
 ) -> anyhow::Result<()> {
     let intents = GatewayIntents::GUILD_MESSAGES | GatewayIntents::MESSAGE_CONTENT;
-    let handler = Handler { inference, session, best_of_n };
+    let handler = Handler { inference, session, best_of_n, allowed_channels };
     let mut client = Client::builder(&token, intents)
         .event_handler(handler)
         .await?;

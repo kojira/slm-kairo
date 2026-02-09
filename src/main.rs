@@ -41,8 +41,14 @@ async fn main() -> Result<()> {
 
     let best_of_n = discord_config.and_then(|c| c.get("best_of_n")).and_then(|v| v.as_integer()).unwrap_or(4) as usize;
 
+    let allowed_channels: Vec<String> = discord_config
+        .and_then(|c| c.get("allowed_channels"))
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+
     info!("Starting Discord bot... (best_of_n={best_of_n})");
-    start_discord_bot(token, inference, session, best_of_n).await?;
+    start_discord_bot(token, inference, session, best_of_n, allowed_channels).await?;
 
     Ok(())
 }
